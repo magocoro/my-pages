@@ -7,70 +7,67 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-
-    async function fetchUsers() {
-      setLoading(true);
-      setError(null);
-
+    (async () => {
       try {
-        const res = await fetch(API_URL);
-        if (!res.ok) {
-          throw new Error("Network response was not ok");
-        }
-        const data = await res.json();
-        if (!cancelled) {
-          setUsers(data);
-        }
+        const r = await fetch(API_URL);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!cancelled) setUsers(data);
       } catch (e) {
-        if (!cancelled) {
-          setError(e.message);
-        }
+        if (!cancelled) setError(e.message || "unknown error");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    }
-    fetchUsers();
-    return () => {
-      cancelled = true;
-    };
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/hello"); // デプロイ先でOK
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        setMessage(data.message);
+      } catch (e) {
+        setMessage(`Error: ${e.message}`);
+      }
+    })();
   }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return users;
+    const norm = v => String(v ?? "").toLowerCase();
     return users.filter(u =>
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.phone.toLowerCase().includes(q)
+      norm(u.name).includes(q) ||
+      norm(u.username).includes(q) ||
+      norm(u.email).includes(q) ||
+      norm(u.phone).includes(q)
     );
   }, [query, users]);
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
+    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
       <h1 style={{ marginBottom: 8 }}>Users (JSONPlaceholder)</h1>
+      <h2>{message}</h2>
 
-      {/* 検索フォーム */}
       <div style={{ marginBottom: 16 }}>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="name / username / email で検索"
+          placeholder="name / username / email / phone で検索"
           style={{ padding: 8, width: 360, maxWidth: "100%" }}
+          disabled={loading}
         />
       </div>
 
-      {/* 状態ごとの分岐表示 */}
       {loading && <p>Loading...</p>}
-      {error && (
-        <p style={{ color: "crimson" }}>
-          Error: {error}（ネットワーク・CORS・一時的な障害など）
-        </p>
-      )}
+      {error && <p style={{ color: "crimson" }}>Error: {error}</p>}
 
       {!loading && !error && (
         <>
@@ -80,7 +77,9 @@ export default function App() {
           <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
             {filtered.map((u) => (
               <li key={u.id} style={{ padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-                <div style={{ fontWeight: 600 }}>{u.name} <span style={{ color: "#666" }}>@{u.username}</span></div>
+                <div style={{ fontWeight: 600 }}>
+                  {u.name} <span style={{ color: "#666" }}>@{u.username}</span>
+                </div>
                 <div>{u.email}</div>
                 <div style={{ fontSize: 13, color: "#666" }}>
                   {u.address?.city} / {u.company?.name}
